@@ -17,5 +17,6 @@ Downside of this is that it takes way longer (13.3 seconds versus 3.6 seconds) a
 
 ## How to use
 - Provide the dependencies ``com.squareup.okhttp`` and ``com.squareup.okhttp-urlconnection`` (When writing this readme, I used Version 4.10.0) in your project
+- Add the provided class ``LoginCookieFetcher`` to your project (you may rename it and adjust the package name ...)
 - Use the static ``login(String url, String username, String password)``-Method of the provided class ``LoginCookieFetcher`` to obtain a List of cookies
 - Configure your driver to send all the obtained cookies (e.g. in Selenium with ``driver.manage().addCookie(cookie);``)
