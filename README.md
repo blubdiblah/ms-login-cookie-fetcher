@@ -12,8 +12,8 @@ This is what te login looks like, that we can skip with the cookies obtained by 
 
 ![image](https://user-images.githubusercontent.com/43816320/198134062-1d2c1fa0-8cb8-401e-bdd7-070df09817f6.png)
 
-I also saw people (well I also did it myself, until I invested some time to make it better) automating this by using selenum to fill in username, click ``Next``, fill in the password and clicking ``Login``.
-Downside of this is that it takes way longer (13.3 seconds versus 3.6 seconds) and felt more brittle. 
+It is also possible, automating this by using selenum to fill in username, click ``Next``, fill in the password and clicking ``Login``.
+Downside of this is that it takes way longer.
 
 ## How to use
 - Provide the dependencies ``com.squareup.okhttp`` and ``com.squareup.okhttp-urlconnection`` (When writing this readme, I used Version 4.10.0) in your project
