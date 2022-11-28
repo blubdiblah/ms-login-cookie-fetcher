@@ -10,9 +10,18 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Retrieve authentication cookies from microsoft login as List of HttpCookie.
+ * @author Michael Pflueger
+ *
+ * Add to Selenium for Java using:
+ * cookies.forEach(c -> driver.manage().addCookie(new Cookie(c.getName(), c.getValue(), c.getDomain(), c.getPath(), null)));
+ *
+ */
 public class LoginCookieFetcher {
 
-    public static List<String> login(String loginUrl, String user, String password) throws IOException {
+    public static List<HttpCookie> login(String loginUrl, String user, String password) {
+
         //Setup
         CookieManager cookieManager = new CookieManager();
         cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
@@ -25,75 +34,75 @@ public class LoginCookieFetcher {
                 .url(loginUrl)
                 .method("GET", null)
                 .build();
-        Response responseForCookie = client.newCall(requestForCookies).execute();
+        try {
+            Response responseForCookie = client.newCall(requestForCookies).execute();
 
-        //Get sFT, sCtx, canary, sessionId
-        assert responseForCookie.body() != null;
-        String responseBody = responseForCookie.body().string();
-        String sft = getSftField(responseBody);
-        String sctx = getCtxField(responseBody);
-        String canary = getCanaryField(responseBody);
-        String sessionId = getSessionIdField(responseBody);
+            //Get sFT, sCtx, canary, sessionId
+            if (responseForCookie.body() == null) {
+                return null;
+            }
+            String responseBody = responseForCookie.body().string();
+            String sft = getSftField(responseBody);
+            String sctx = getCtxField(responseBody);
+            String canary = getCanaryField(responseBody);
+            String sessionId = getSessionIdField(responseBody);
 
-        //Post Login
-        RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("login", user)
-                .addFormDataPart("passwd", password)
-                .addFormDataPart("flowToken", sft)
-                .addFormDataPart("type", "11")
-                .addFormDataPart("ctx", sctx)
-                .addFormDataPart("canary", canary)
-                .addFormDataPart("hpgrequestid", sessionId)
-                .build();
-        Request requestForLogin = new Request.Builder()
-                .url("https://login.microsoftonline.com/common/login")
-                .method("POST", body)
-                .build();
-        client.newCall(requestForLogin).execute();
-
-        return toJsonString(cookieManager.getCookieStore().getCookies(), loginUrl);
+            //Post Login
+            RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
+                    .addFormDataPart("login", user)
+                    .addFormDataPart("passwd", password)
+                    .addFormDataPart("flowToken", sft)
+                    .addFormDataPart("type", "11")
+                    .addFormDataPart("ctx", sctx)
+                    .addFormDataPart("canary", canary)
+                    .addFormDataPart("hpgrequestid", sessionId)
+                    .build();
+            Request requestForLogin = new Request.Builder()
+                    .url("https://login.microsoftonline.com/common/login")
+                    .method("POST", body)
+                    .build();
+            client.newCall(requestForLogin).execute();
+        } catch (IOException e) {
+            return null;
+        }
+        List<HttpCookie> cookieList = cookieManager.getCookieStore().getCookies();
+        return cookieList.stream().map(c -> addCookieDomain(c, loginUrl)).collect(Collectors.toList());
     }
 
     private static String getCtxField(String responseBody) {
+
         responseBody = responseBody.substring(responseBody.indexOf("sCtx\":\"") + 7);
         return responseBody.substring(0, responseBody.indexOf("\""));
     }
 
     private static String getSftField(String responseBody) {
+
         responseBody = responseBody.substring(responseBody.indexOf("sFT\":\"") + 6);
         return responseBody.substring(0, responseBody.indexOf("\""));
     }
 
     private static String getCanaryField(String responseBody) {
+
         responseBody = responseBody.substring(responseBody.indexOf("canary\":\"") + 9);
         return responseBody.substring(0, responseBody.indexOf("\""));
     }
 
     private static String getSessionIdField(String responseBody) {
+
         responseBody = responseBody.substring(responseBody.indexOf("sessionId\":\"") + 12);
         return responseBody.substring(0, responseBody.indexOf("\""));
     }
 
-    private static List<String> toJsonString(List<HttpCookie> cookieList, String baseUrl) {
-        if (cookieList.size()<11) {
-            throw new RuntimeException("Invalid credentials or password rotation needed!");
-        }
-        return cookieList.stream()
-                .map(httpCookie -> cookieToJsonString(httpCookie, baseUrl))
-                .collect(Collectors.toList());
-    }
+    private static HttpCookie addCookieDomain(HttpCookie cookie, String baseUrl) {
 
-    private static String cookieToJsonString(HttpCookie cookie, String baseUrl) {
-        String[] cookieKeyValue = cookie.toString().split("=", 2);
         List<String> microsoftSpecificCookieList = Arrays.asList("fpc", "buid", "ESTSAUTHLIGHT", "ESTCC", "x-ms-gateway-slice", "stsservicecookie");
-        String domain;
-        if (cookieKeyValue[0].equals("JSESSIONID")) {
-            domain = baseUrl;
-        } else if (microsoftSpecificCookieList.contains(cookieKeyValue[0])) {
-            domain = "login.microsoftonline.com";
+        if (cookie.getName().equals("JSESSIONID")) {
+            cookie.setDomain(baseUrl);
+        } else if (microsoftSpecificCookieList.contains(cookie.getName())) {
+            cookie.setDomain("login.microsoftonline.com");
         } else {
-            domain = ".login.microsoftonline.com";
+            cookie.setDomain(".login.microsoftonline.com");
         }
-        return "{\"name\": \"" + cookieKeyValue[0] + "\", \"value\": \"" + cookieKeyValue[1] + "\", \"domain\": \"" + domain + "\"}";
+        return cookie;
     }
 }
